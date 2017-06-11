@@ -6,8 +6,7 @@ import           ClassyPrelude
 -- * Base imports.
 import           Control.Lens         hiding ((.=))
 import           Data.Aeson
-import           Data.Aeson.TH
-import           Data.Aeson.Types     (Options (..), Parser)
+import           Data.Aeson.Types     (Parser)
 import           Database.Persist.Sql
 
 -- * Local imports.
@@ -16,33 +15,23 @@ import           Types.Token          (JWTText)
 --------------------------------------------------------------------------------
 -- | Newtype wrapper around @Text@ for a user' email.
 newtype UEmail = UEmail Text
-  deriving (Eq, Generic, PersistField, PersistFieldSql, Show)
-
-$(deriveJSON (defaultOptions { unwrapUnaryRecords = True }) ''UEmail)
+  deriving (Eq, PersistField, PersistFieldSql, FromJSON, ToJSON, Show)
 
 -- | Newtype wrapper around @Text@ for a username.
 newtype UName = UName Text
-  deriving (Eq, Generic, PersistField, PersistFieldSql, Show)
-
-$(deriveJSON (defaultOptions { unwrapUnaryRecords = True }) ''UName)
+  deriving (Eq, PersistField, PersistFieldSql, FromJSON, ToJSON, Show)
 
 -- | Newtype wrapper around @Text@ for a user's plaintext password.
 newtype UPlainText = UPlainText { fromUPlainText :: Text }
-  deriving (Eq, Generic)
-
-$(deriveJSON (defaultOptions { unwrapUnaryRecords = True }) ''UPlainText)
+  deriving (Eq, FromJSON, ToJSON)
 
 -- | Newtype wrapper around @Text@ for a user's bio.
 newtype UBio = UBio Text
-  deriving (Eq, Generic, PersistField, PersistFieldSql, Show)
-
-$(deriveJSON (defaultOptions { unwrapUnaryRecords = True }) ''UBio)
+  deriving (Eq, PersistField, PersistFieldSql, FromJSON, ToJSON, Show)
 
 -- | Newtype wrapper around @Text@ for a user's image URL.
 newtype UImage = UImage Text
-  deriving (Eq, Generic, PersistField, PersistFieldSql, Show)
-
-$(deriveJSON (defaultOptions { unwrapUnaryRecords = True }) ''UImage)
+  deriving (Eq, PersistField, PersistFieldSql, FromJSON, ToJSON, Show)
 
 --------------------------------------------------------------------------------
 -- | User login JSON request.
