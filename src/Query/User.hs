@@ -1,6 +1,7 @@
 module Query.User where
 
 import           ClassyPrelude      hiding (on)
+import           Data.UUID          (UUID)
 import           Data.UUID.V4       (nextRandom)
 import           Database.Esqueleto
 
@@ -24,10 +25,18 @@ insertUser uName uEmail uPass = do
 
 --------------------------------------------------------------------------------
 -- | Retrieve a user and their hashed password from the database.
-getUser :: UEmail -> DB (Maybe (Entity User, Entity Password))
-getUser uEmail = fmap listToMaybe $
+getUserByEmail :: UEmail -> DB (Maybe (Entity User, Entity Password))
+getUserByEmail uEmail = fmap listToMaybe $
   select $
   from $ \(dbUser `InnerJoin` dbPass) -> do
   on (dbUser ^. UserId ==. dbPass ^. PasswordUser)
   where_ (dbUser ^. UserEmail ==. val uEmail)
   pure (dbUser, dbPass)
+
+-- | Retrieve a user and their hashed password from the database.
+getUserByUuid :: UUID -> DB (Maybe (Entity User))
+getUserByUuid uUuid = fmap listToMaybe $
+  select $
+  from $ \dbUser -> do
+  where_ (dbUser ^. UserUuid ==. val uUuid)
+  pure dbUser

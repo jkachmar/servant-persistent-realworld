@@ -42,6 +42,7 @@ dependencies:
   - dotenv                >= 0.3  && < 0.4
   - esqueleto             >= 2.5  && < 2.6
   - fast-logger           >= 2.4  && < 2.5
+  - interpolate           >= 0.1  && < 0.2
   - jose                  >= 0.5  && < 0.6
   - katip                 >= 0.3  && < 0.4
   - lens                  >= 4.15 && < 4.16
@@ -57,8 +58,9 @@ dependencies:
   - servant-server        # version pinned by stack.yaml
   - transformers          >= 0.5  && < 0.6
   - transformers-base     >= 0.4  && < 0.5
-  - time                  >= 1.6  && < 1.7
+  - template-haskell      >= 2.11 && < 2.12
   - text                  >= 1.2  && < 1.3
+  - time                  >= 1.6  && < 1.7
   - uuid                  >= 1.3  && < 1.4
   - wai                   >= 3.2  && < 3.3
   - wai-extra             >= 3.0  && < 3.1
@@ -71,7 +73,7 @@ ghc-options:
   - -Werror
 
 executables:
-  app:
+  realworld:
     source-dirs:      app
     main:             Main.hs
     ghc-options:      

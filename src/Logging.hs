@@ -2,36 +2,45 @@
 
 module Logging where
 
--- * Prelude.
+-- Prelude.
 import           ClassyPrelude
 
--- * Base imports.
+-- Base imports.
 import           Control.Lens                hiding (scribe)
 import           Control.Monad.Base
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Control
-import qualified Data.ByteString.Char8       as BS8
+import qualified Data.ByteString.Char8       as BS
 
--- * Logging imports.
+-- Metaprogramming imports.
+import qualified Data.String.Interpolate     as I
+import           Language.Haskell.TH.Quote
+
+-- Logging imports.
 import           Control.Monad.Logger        (LogLevel (..), MonadLogger,
                                               monadLoggerLog)
-import           Katip                       hiding (Environment, LogStr)
-import qualified Katip                       as K
+import           Katip                       hiding (Environment)
+import           Katip.Monadic
 import           System.Log.FastLogger       (fromLogStr, toLogStr)
 
--- * Local project imports.
-import           Foundation
-
 --------------------------------------------------------------------------------
-
--- | Our @LoggingT@ monad, which should be compatible with any @MonadLogger@
--- interface. Not all of the included instances below are strictly necessary,
--- but may be useful for more complex applications, and so have been included.
+-- | Type representing logging effects for a @Katip@-powered logger.
 newtype LoggingT m a
   = LoggingT
   { unLoggingT :: ReaderT LogState m a
   } deriving ( MonadReader LogState, Functor, Applicative, Monad, MonadIO
              , MonadTrans)
+
+-- | @Katip@ logging information.
+data LogState
+  = LogState
+  { _lsContext   :: !LogContexts
+  , _lsNamespace :: !Namespace
+  , _lsLogEnv    :: !LogEnv
+  }
+
+-- | Generate lenses for @LogState@ as well as the @HasLogState@ class.
+makeClassy ''LogState
 
 instance MonadBase b m => MonadBase b (LoggingT m) where
   liftBase = liftBaseDefault
@@ -54,7 +63,7 @@ instance MonadIO m => KatipContext (LoggingT m) where
   getKatipNamespace = view lsNamespace
 
 --------------------------------------------------------------------------------
--- | Make @LoggingT@ an instance of @MonadLogger@.
+-- | Instance to run functions with @MonadLogger@ baked-in inside @LoggingT@.
 instance MonadIO m => MonadLogger (LoggingT m) where
   monadLoggerLog loc _src lvl msg =
     let lvl' = case lvl of
@@ -63,7 +72,7 @@ instance MonadIO m => MonadLogger (LoggingT m) where
           LevelWarn    -> WarningS
           LevelError   -> ErrorS
           LevelOther _ -> WarningS -- ^ default @LevelOther@ to a warning
-        msg' = BS8.unpack . fromLogStr . toLogStr $ msg
+        msg' = BS.unpack . fromLogStr . toLogStr $ msg
     in logItemM (Just loc) lvl' (showLS msg')
 
 --------------------------------------------------------------------------------
@@ -76,7 +85,7 @@ addContext i = local (\r -> r & lsContext <>~ ctxs)
 addNamespace :: (HasLogState r, MonadReader r m) => Namespace -> m a -> m a
 addNamespace ns = local (\r -> r & lsNamespace <>~ ns)
 
--- | Turn logging off only for the given block.
+-- | Turn off logging only for the given block.
 noLogging :: (HasLogState r, MonadReader r m) => m a -> m a
 noLogging = local (\r -> r & lsLogEnv %~ clearScribes)
 
@@ -84,15 +93,34 @@ runLoggingT :: LogState -> LoggingT m a -> m a
 runLoggingT s = flip runReaderT s . unLoggingT
 
 --------------------------------------------------------------------------------
--- | Given an @Environment@, return a @LogEnv@ for our application.
-mkLogger :: Environment -> IO LogEnv
-mkLogger env = do
-  let katipEnv = K.Environment $ tshow env
-  let logLevel = case env of
-        Production -> InfoS
-        _          -> DebugS
+-- | Loc-tagged logging of debug messages, automatically supplying payload and
+-- namespace
+logDebugM :: (Applicative m, KatipContext m) => LogStr -> m ()
+logDebugM = logLocM DebugS
 
-  scribe <- mkHandleScribe ColorIfTerminal stdout logLevel V2
-  logger <- initLogEnv mempty katipEnv
+-- | Loc-tagged logging of info messages, automatically supplying payload and
+-- namespace
+logInfoM :: (Applicative m, KatipContext m) => LogStr -> m ()
+logInfoM = logLocM InfoS
 
-  pure $ registerScribe "stdout" scribe logger
+-- | Loc-tagged logging of warning messages, automatically supplying payload
+-- and namespace
+logWarnM :: (Applicative m, KatipContext m) => LogStr -> m ()
+logWarnM = logLocM WarningS
+
+-- | Loc-tagged logging of error messages, automatically supplying payload and
+-- namespace
+logErrorM :: (Applicative m, KatipContext m) => LogStr -> m ()
+logErrorM = logLocM ErrorS
+
+-- | QuasiQuoter for producing an interpolated @Katip@ @LogStr@.
+logt :: QuasiQuoter
+logt = QuasiQuoter
+  { quoteExp  = \s -> [|logStr $(quoteExp I.i $ s)|]
+  , quotePat  = err "pattern"
+  , quoteType = err "pattern"
+  , quoteDec  = err "pattern"
+  }
+  where
+    err name = error $
+      "Logger.logt: This QuasiQuoter can not be used as a " <> name <> "!"

@@ -14,7 +14,6 @@ import           Katip                (KatipContext, Severity (..), logStr,
                                        logTM)
 
 -- * Local imports.
-import           Foundation
 import           Logging
 
 --------------------------------------------------------------------------------

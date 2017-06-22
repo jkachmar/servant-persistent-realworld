@@ -1,19 +1,18 @@
 module Api.Users where
 
--- * Prelude.
+-- Prelude.
 import           ClassyPrelude hiding (hash)
 
--- * Base imports.
+-- Base imports.
 import           Control.Lens
 import           Data.Time           (NominalDiffTime, addUTCTime)
 import           Database.Persist    (Entity(Entity))
-import           Katip               (logTM, Severity(..), LogStr, showLS, Namespace)
 
--- * Servant imports.
+-- Servant imports.
 import           Servant
 import           Servant.Auth.Server hiding (makeJWT)
 
--- * Local imports.
+-- Local imports.
 import           Foundation
 import           Logging
 import           Model
@@ -26,9 +25,9 @@ import           Types.User          hiding (userBio, userImage)
 -- | Servant type-level representation of the "users" route fragment.
 type UsersApi auths = (Auth auths Token :> ProtectedApi) :<|> UnprotectedApi
 
--- | Server function for the "users" route fragment.
-usersServer :: ServerT (UsersApi auths) App
-usersServer = protected :<|> unprotected
+-- | Handler function for the "users" route fragment.
+usersHandler :: ServerT (UsersApi auths) App
+usersHandler = protected :<|> unprotected
 
 --------------------------------------------------------------------------------
 -- | Type-level representation of the endpoints protected by @Auth@.
@@ -42,17 +41,16 @@ type ProtectedApi =
 -- endpoint handler.
 protected :: AuthResult Token -> ServerT ProtectedApi App
 protected (Authenticated t) = register t
-protected _                 = throwAll err401
+protected _                 = pure $ throwM err401
 
 -- | Registration endpoint handler.
 register :: Token -> UserRegister -> App UserResponse
 register _ userReg = do
   hashedPw <- hashPassword $ fromUPlainText $ userReg ^. password
   dbUser   <- runDB $ insertUser (userReg ^. name) (userReg ^. email) hashedPw
-
-  let logMsg = "Registered: [[" <> (showLS dbUser) <> "]]"
-
-  mkUserResponse userReg hashedPw dbUser ("register", logMsg)
+  let logAction = addNamespace "register"
+                $ logInfoM [logt|"#{dbUser} was registered."|]
+  mkUserResponse userReg hashedPw dbUser logAction
 
 --------------------------------------------------------------------------------
 -- | Type-level representation of the endpoints not protected by @Auth@.
@@ -68,15 +66,16 @@ unprotected = login
 
 login :: UserLogin -> App UserResponse
 login userLogin = do
-  -- Query the database for a user with a matching email address.
-  maybeUserPass    <- runDB $ getUser (userLogin ^. email)
-  -- Pull the user and password entity values out, if they exist.
+  -- Get the user and password associated with this email, if they exist.
+  maybeUserPass    <- runDB $ getUserByEmail (userLogin ^. email)
   (dbUser, dbPass) <- case maybeUserPass of
-    Nothing -> throwError err404
+    Nothing -> throwM err404
     Just ((Entity _ dbUser), (Entity _ dbPass)) -> pure $ (dbUser, dbPass)
 
-  let logMsg = "Logged in: [[" <> (showLS dbUser) <> "]]"
-  mkUserResponse userLogin (passwordHash dbPass) dbUser ("login", logMsg)
+  let logAction = addNamespace "login"
+                $ logInfoM [logt|"#{dbUser} logged in."|]
+
+  mkUserResponse userLogin (passwordHash dbPass) dbUser logAction
 
 --------------------------------------------------------------------------------
 -- | Return a token for a given user if the login password is valid when
@@ -90,7 +89,7 @@ mkToken pass hashed dbUser = do
   -- If the password isn't valid, throw a 401
   -- TODO - validatePassword should return an Either so that when validation
   -- fails internally, we can throw a 500.
-  if isValid then pure () else throwError err401
+  if isValid then pure () else throwM err401
   pure $ Token (userUuid dbUser)
 
 -- | Return a textual view of a JWT from a token, valid for a given duration
@@ -106,21 +105,21 @@ mkJWT token duration = do
   case tryJWT of
     -- If JWT generation failed, log the error and throw a 500
     Left e -> addNamespace "jwt_generation" $ do
-      $(logTM) ErrorS
-        $ "JWT generation failed with the following error [["
-        <> (showLS e)
-        <> "]]"
-      throwError err500
+      logErrorM [logt|JWT generation failed with the error #{e}|]
+      throwM err500
 
     Right lazyJWT -> pure . JWTText . decodeUtf8 . toStrict $ lazyJWT
 
--- | Generate a @UserResponse@ with a token that expires 20 minutes from now.
-mkUserResponse
-  :: HasPassword s UPlainText
-  => s -> BCrypt -> User -> (Namespace, LogStr) -> App UserResponse
-mkUserResponse user hashedPw dbUser (logNamespace, logMsg) = do
+-- TODO - Make a `Common` module that stores functions like this.
+-- | Generate a @UserResponse@ with an expiring token (defined in @Config@),
+-- logging to @Katip@ with the given function.
+mkUserResponse ::
+  HasPassword s UPlainText =>
+  s -> BCrypt -> User -> App () -> App UserResponse
+mkUserResponse user hashedPw dbUser logAction = do
+  timeout <- view jwtTimeout
   tok <- mkToken (fromUPlainText $ user ^. password) hashedPw dbUser
-  jwt <- mkJWT tok 1200
-  addNamespace logNamespace $ $(logTM) InfoS logMsg
+  jwt <- mkJWT tok timeout
+  logAction
   pure $ UserResponse
     (userEmail dbUser) jwt (userName dbUser) (userBio dbUser) (userImage dbUser)

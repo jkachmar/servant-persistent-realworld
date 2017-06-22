@@ -1,19 +1,16 @@
 module Types.Token where
 
--- * Prelude.
+-- Prelude.
 import           ClassyPrelude
 
--- * Base imports.
+-- Base imports.
 import           Data.Aeson           (FromJSON, ToJSON, object, parseJSON,
                                        toJSON, withObject, (.:), (.=))
--- import           Data.Aeson.Types     (Options (..), defaultOptions,
---                                        genericToJSON, unwrapUnaryRecords)
-
 import           Data.UUID            (UUID, fromText, toText)
 import           Servant.Auth.Server  (FromJWT, JWTSettings, ToJWT, encodeJWT,
                                        key)
 
--- * Imports to override 'makeJWT'
+-- Imports to override 'makeJWT'
 import           Control.Lens         ((&), (.~))
 import           Control.Monad.Except (runExceptT)
 import qualified Crypto.JOSE          as Jose
@@ -26,7 +23,7 @@ import qualified Data.ByteString.Lazy as BSL
 newtype Token = Token { unToken :: UUID } deriving (Eq, Read, Show)
 
 instance FromJSON Token where
-  parseJSON = withObject "user authentication JWT" $ \o -> do
+  parseJSON = withObject "Token" $ \o -> do
      maybeTok <- o .: "user_uuid"
      case (fromText maybeTok) of
        Nothing  -> fail $ "unable to parse field [" <> unpack maybeTok <> "]"
@@ -40,10 +37,7 @@ instance ToJWT   Token
 
 -------------------------------------------------------------------------------
 -- | Simple newtype wrapper for the textual representation of a JWT
-newtype JWTText = JWTText Text deriving Generic
-
-instance ToJSON JWTText -- where
-  -- toJSON = genericToJSON defaultOptions { unwrapUnaryRecords = True}
+newtype JWTText = JWTText Text deriving (Generic, ToJSON)
 
 -------------------------------------------------------------------------------
 -- | Creates a JWT containing the specified data. The data is stored in the

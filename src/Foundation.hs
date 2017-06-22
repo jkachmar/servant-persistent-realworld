@@ -1,69 +1,80 @@
 module Foundation where
 
--- * Prelude.
-import           ClassyPrelude               hiding (Handler)
+-- Prelude.
+import           ClassyPrelude               hiding (Handler, keys)
 
--- * Base imports.
-import           Control.Lens
-import           Control.Monad.Except        (MonadError)
+-- Base imports.
+import           Control.Lens                hiding (scribe)
+import           Control.Monad.Except        (ExceptT (..))
+import           Control.Monad.Trans.Maybe   (MaybeT (MaybeT), runMaybeT)
+import qualified Data.ByteString.Char8       as BS8
+import           Data.Time                   (NominalDiffTime)
 import           Database.Persist.Postgresql
+import           System.Environment          (lookupEnv)
 
--- * Logging imports.
+-- Logging imports.
 import           Katip                       hiding (Environment)
+import qualified Katip                       as K
+import           Logging
 
--- * Servant and related imports.
-import           Servant                     ((:~>) (NT), Handler, ServantErr)
+-- Servant and related imports.
+import           Servant                     ((:~>) (NT), Handler (Handler))
 import           Servant.Auth.Server         (JWTSettings)
 
 --------------------------------------------------------------------------------
--- | Data type representing the effects we want our application to have.
--- We wrap the standard Servant @Handler@ monad in a @ReaderT Config@
--- transformer, which gives us access to infomration in @Config@ throughout
--- our application using @Control.Lens@'s @view@.
-newtype App a
-  = App
-  { runApp :: ReaderT Config Handler a
-  } deriving ( Functor, Applicative, Monad, MonadIO, MonadReader Config
-             , MonadError ServantErr)
+-- | Concrete representation of our App.
+type App = AppT IO
+
+-- | Data type representing the most general effects our application should be
+-- able to perform.
+newtype AppT m a
+  = AppT
+  { unAppT :: ReaderT Ctx m a
+  } deriving ( Functor, Applicative, Monad
+             , MonadIO, MonadCatch, MonadThrow
+             , MonadReader Ctx
+             )
+
+-- | Embed a function from some @Ctx@ to an arbitrary monad in @AppT@.
+mkAppT :: (Ctx -> m a) -> AppT m a
+mkAppT f = AppT (ReaderT f)
+
+-- | Run an 'AppT' using the given 'Ctx'.
+runAppT :: Ctx -> AppT m a -> m a
+runAppT env app = runReaderT (unAppT app) env
 
 --------------------------------------------------------------------------------
 -- | Read-only configuration information for our application.
-data Config
-  = Config
-  { _connPool      :: ConnectionPool
-  , _jwtSettings   :: JWTSettings
-  , _katipLogState :: LogState
+data Ctx
+  = Ctx
+  { _connPool      :: !ConnectionPool
+  , _jwtSettings   :: !JWTSettings
+  , _jwtTimeout    :: !NominalDiffTime
+  , _katipLogState :: !LogState
   }
 
--- | Katip logging information.
-data LogState
-  = LogState
-  { _lsContext   :: LogContexts
-  , _lsLogEnv    :: LogEnv
-  , _lsNamespace :: Namespace
-  }
-
--- | Classy lenses for @LogState@, which give us accessors as well as the
--- @HasLogState@ typeclass.
-makeClassy ''LogState
-makeLenses ''Config
+-- | Generate lenses for our @Env@.
+makeLenses ''Ctx
 
 --------------------------------------------------------------------------------
--- | Instances required to implement @Katip@ for our @App@ monad.
+-- | Implement a @HasLogState@ instance for our @Ctx@ record, allowing the
+-- @Katip@ to access the underlying logging context.
+instance HasLogState Ctx where
+  logState = katipLogState
+
+-- | Implement a @Katip@ instance for our @App@ monad.
 instance Katip App where
   getLogEnv = view lsLogEnv
 
+-- | Implement a @KatipContext@ instance for our @App@ monad.
 instance KatipContext App where
   getKatipContext   = view lsContext
   getKatipNamespace = view lsNamespace
 
-instance HasLogState Config where
-  logState = katipLogState
-
 --------------------------------------------------------------------------------
--- | Convert @App@ to a Servant @Handler@, for a given @Config@.
-appToHandler :: Config -> App :~> Handler
-appToHandler cfg = NT $ flip runReaderT cfg . runApp
+-- | Convert @App@ to a Servant @Handler@, for a given 'Ctx'.
+appToHandler :: Ctx -> App :~> Handler
+appToHandler ctx = NT $ Handler . ExceptT . try . runAppT ctx
 
 --------------------------------------------------------------------------------
 -- | Application environment.
@@ -74,8 +85,68 @@ data Environment
   | Production
   deriving (Eq, Read, Show)
 
+--------------------------------------------------------------------------------
+-- | Given an @Environment@, return a @LogState@ for our application.
+makeLogger :: Environment -> IO LogState
+makeLogger env = do
+  let katipEnv = K.Environment $ tshow env
+  let logLevel = case env of
+        Production -> InfoS
+        _          -> DebugS
+
+  scribe <- mkHandleScribe ColorIfTerminal stdout logLevel V2
+  logger <- initLogEnv mempty katipEnv
+  let logEnv = registerScribe "stdout" scribe logger
+
+  pure $ LogState mempty mempty logEnv
+
+--------------------------------------------------------------------------------
+-- | Make a Postgresql @ConnectionPool@ for a given environment; logging the
+-- events with @Katip@ using the provided @LogState@ context.
+makePool :: Environment -> LogState -> IO ConnectionPool
+makePool env logger = do
+  connStr <- getConnStr env
+  let poolSize = getPoolSize env
+  let logLoudness = case env of
+        Testing -> noLogging
+        _       -> id
+
+  runLoggingT logger
+    $ logLoudness
+    $ addNamespace "psql"
+    $ createPostgresqlPool connStr poolSize
+
 -- | Determine the number of connections in our @ConnectionPool@ based on the
 -- operating environment.
-envPool :: Environment -> Int
-envPool Production  = 8
-envPool _           = 1
+getPoolSize :: Environment -> Int
+getPoolSize Production  = 8
+getPoolSize _           = 1
+
+-- | Make a @ConnectionString@ from environment variables, throwing an error if
+-- any cannot be found.
+getConnStr :: Environment -> IO ConnectionString
+getConnStr Development
+  = pure $ "host=localhost port=5432 user=jkachmar password= dbname=macchina"
+getConnStr Testing
+  = pure $ "host=localhost port=5432 user=jkachmar password= dbname=macchina-test"
+getConnStr _ = do
+  maybePool <- runMaybeT $ do
+    let keys = [ "host="
+               , " port="
+               , " user="
+               , " password="
+               , " dbname="
+               ]
+        envs = [ "PGHOST"
+               , "PGPORT"
+               , "PGUSER"
+               , "PGPASS"
+               , "PGDATABASE"
+               ]
+    envVars <- traverse (MaybeT . lookupEnv) envs
+    pure $ mconcat . zipWith (<>) keys $ BS8.pack <$> envVars
+
+  case maybePool of
+    Nothing ->
+      throwIO $ userError $ "Database configuration not present in environment!"
+    Just pool -> pure pool

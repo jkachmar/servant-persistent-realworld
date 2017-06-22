@@ -1,19 +1,19 @@
 module Model where
 
--- * Prelude.
+-- Prelude.
 import           ClassyPrelude
 
--- * Base imports.
-import           Control.Lens
+-- Base imports.
+import           Control.Lens         (view)
 import           Data.UUID            (UUID)
 
--- * Database imports.
+-- Database imports.
 import           Database.Persist.Sql
 import           Database.Persist.TH  (mkMigrate, mkPersist, persistLowerCase,
                                        persistLowerCase, share, sqlSettings)
 
--- * Local imports.
-import           Foundation           (Config, connPool)
+-- Local imports.
+import           Foundation           (Ctx, connPool)
 import           Types.BCrypt         (BCrypt)
 import           Types.Instances      ()
 import           Types.User           (UName, UEmail, UBio, UImage)
@@ -37,8 +37,8 @@ type DBVal val =
   , PersistStore (PersistEntityBackend val))
 
 --------------------------------------------------------------------------------
--- | Execute read/write DB query using the connection pool from @Config@.
-runDB :: (MonadReader Config m, MonadIO m) => DB a -> m a
+-- | Execute read/write DB query using the connection pool from @Ctx@.
+runDB :: (MonadReader Ctx m, MonadIO m) => DB a -> m a
 runDB query = do
   pool <- view connPool
   liftIO $ runSqlPool query pool
@@ -56,7 +56,7 @@ share
     image     UImage Maybe sqltype=text
     uuid      UUID         sqltype=uuid
     createdAt UTCTime      sqltype=timestamptz sql=created_at default=CURRENT_TIMESTAMP
-    updatedAt UTCTime      sqltype=timestamptz sql=created_at default=CURRENT_TIMESTAMP
+    updatedAt UTCTime      sqltype=timestamptz sql=updated_at default=CURRENT_TIMESTAMP
     UniqueEmailUser email
     deriving Eq Generic Show
 
@@ -64,7 +64,6 @@ share
     hash      BCrypt
     user      UserId
     createdAt UTCTime sqltype=timestamptz sql=created_at default=CURRENT_TIMESTAMP
-    updatedAt UTCTime sqltype=timestamptz sql=created_at default=CURRENT_TIMESTAMP
+    updatedAt UTCTime sqltype=timestamptz sql=updated_at default=CURRENT_TIMESTAMP
     UniquePasswordUser user
-    deriving Eq Generic Show
   |]

@@ -1,6 +1,7 @@
 module Main where
 
-import ClassyPrelude
+import           App           (startApp)
+import           ClassyPrelude
 
 main :: IO ()
-main = putStrLn "Hello"
+main = startApp
