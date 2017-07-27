@@ -22,7 +22,7 @@ import           Servant                     ((:~>) (NT), Handler (Handler))
 import           Servant.Auth.Server         (JWTSettings)
 
 --------------------------------------------------------------------------------
--- | Concrete representation of our App.
+-- | Concrete representation of our app's transformer stack.
 type App = AppT IO
 
 -- | Data type representing the most general effects our application should be
@@ -37,11 +37,11 @@ newtype AppT m a
 
 -- | Embed a function from some @Ctx@ to an arbitrary monad in @AppT@.
 mkAppT :: (Ctx -> m a) -> AppT m a
-mkAppT f = AppT (ReaderT f)
+mkAppT = AppT . ReaderT
 
 -- | Run an 'AppT' using the given 'Ctx'.
 runAppT :: Ctx -> AppT m a -> m a
-runAppT env app = runReaderT (unAppT app) env
+runAppT ctx app = runReaderT (unAppT app) ctx
 
 --------------------------------------------------------------------------------
 -- | Read-only configuration information for our application.
@@ -63,16 +63,16 @@ instance HasLogState Ctx where
   logState = katipLogState
 
 -- | Implement a @Katip@ instance for our @App@ monad.
-instance Katip App where
+instance MonadIO m => Katip (AppT m) where
   getLogEnv = view lsLogEnv
 
 -- | Implement a @KatipContext@ instance for our @App@ monad.
-instance KatipContext App where
+instance MonadIO m => KatipContext (AppT m) where
   getKatipContext   = view lsContext
   getKatipNamespace = view lsNamespace
 
 --------------------------------------------------------------------------------
--- | Convert @App@ to a Servant @Handler@, for a given 'Ctx'.
+-- | Convert our 'App' type to a 'Servant.Handler', for a given 'Ctx'.
 appToHandler :: Ctx -> App :~> Handler
 appToHandler ctx = NT $ Handler . ExceptT . try . runAppT ctx
 

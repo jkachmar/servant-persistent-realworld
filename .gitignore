@@ -2,3 +2,6 @@
 /.cabal-sandbox/
 /cabal.sandbox.config
 /.stack-work/
+.env
+/resources/keys/*
+!/resources/keys/.gitkeep

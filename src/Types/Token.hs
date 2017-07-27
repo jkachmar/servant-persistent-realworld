@@ -3,7 +3,6 @@ module Types.Token where
 -- Prelude.
 import           ClassyPrelude
 
--- Base imports.
 import           Data.Aeson           (FromJSON, ToJSON, object, parseJSON,
                                        toJSON, withObject, (.:), (.=))
 import           Data.UUID            (UUID, fromText, toText)

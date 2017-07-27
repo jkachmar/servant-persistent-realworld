@@ -2,18 +2,15 @@ module Types.BCrypt
   ( BCrypt, hashPassword, validatePassword
   ) where
 
--- * Prelude
+-- Prelude.
 import           ClassyPrelude        hiding (hash)
 
--- * Base imports.
 import qualified Crypto.KDF.BCrypt    as BC
 import           Database.Persist.Sql
-
--- * Logging imports.
 import           Katip                (KatipContext, Severity (..), logStr,
                                        logTM)
 
--- * Local imports.
+-- Local imports.
 import           Logging
 
 --------------------------------------------------------------------------------

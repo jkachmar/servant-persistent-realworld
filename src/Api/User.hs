@@ -3,7 +3,6 @@ module Api.User where
 -- Prelude.
 import           ClassyPrelude hiding (hash)
 
--- Base imports.
 import           Control.Lens
 import           Data.Time           (NominalDiffTime, addUTCTime)
 import           Database.Persist    (Entity(Entity))

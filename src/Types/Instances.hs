@@ -2,10 +2,9 @@
 
 module Types.Instances where
 
--- * Prelude.
+-- Prelude.
 import           ClassyPrelude
 
--- * Base imports.
 import           Data.Aeson
 import           Data.Aeson.Types      (Value (String))
 import qualified Data.ByteString.Char8 as B8

@@ -3,7 +3,6 @@ module Api.Users where
 -- Prelude.
 import           ClassyPrelude hiding (hash)
 
--- Base imports.
 import           Control.Lens
 import           Data.Time           (NominalDiffTime, addUTCTime)
 import           Database.Persist    (Entity(Entity))
@@ -70,7 +69,8 @@ login userLogin = do
   maybeUserPass    <- runDB $ getUserByEmail (userLogin ^. email)
   (dbUser, dbPass) <- case maybeUserPass of
     Nothing -> throwM err404
-    Just ((Entity _ dbUser), (Entity _ dbPass)) -> pure $ (dbUser, dbPass)
+    Just ( (Entity _ dbUser)
+         , (Entity _ dbPass)) -> pure (dbUser, dbPass)
 
   let logAction = addNamespace "login"
                 $ logInfoM [logt|"#{dbUser} logged in."|]
@@ -87,8 +87,8 @@ mkToken pass hashed dbUser = do
   isValid <- validatePassword pass hashed
 
   -- If the password isn't valid, throw a 401
-  -- TODO - validatePassword should return an Either so that when validation
-  -- fails internally, we can throw a 500.
+  -- TODO - maybe validatePassword should return an Either so that when
+  -- validation fails internally, we can throw a 500.
   if isValid then pure () else throwM err401
   pure $ Token (userUuid dbUser)
 
@@ -110,12 +110,11 @@ mkJWT token duration = do
 
     Right lazyJWT -> pure . JWTText . decodeUtf8 . toStrict $ lazyJWT
 
--- TODO - Make a `Common` module that stores functions like this.
--- | Generate a @UserResponse@ with an expiring token (defined in @Config@),
--- logging to @Katip@ with the given function.
-mkUserResponse ::
-  HasPassword s UPlainText =>
-  s -> BCrypt -> User -> App () -> App UserResponse
+-- | Generate a 'UserResponse' with an expiring token (defined in 'Config'),
+-- logging to 'Katip' with the given @logAction@ function.
+mkUserResponse
+  :: HasPassword r UPlainText
+  => r -> BCrypt -> User -> App () -> App UserResponse
 mkUserResponse user hashedPw dbUser logAction = do
   timeout <- view jwtTimeout
   tok <- mkToken (fromUPlainText $ user ^. password) hashedPw dbUser

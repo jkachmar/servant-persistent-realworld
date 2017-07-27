@@ -19,15 +19,15 @@ import           Types.Instances      ()
 import           Types.User           (UName, UEmail, UBio, UImage)
 
 --------------------------------------------------------------------------------
--- | Constraint for functions that must implement @MonadIO@ and
---  @MonadBaseControl IO@.
+-- | Constraint for functions that must implement 'MonadIO' and
+--  'MonadBaseControl IO'.
 type ControlIO m = (MonadIO m, MonadBaseControl IO m)
 
 -- | Type alias for a monad in which we can run DB actions.
 type DBM m a = (ControlIO m, MonadThrow m, Monad m) => SqlPersistT m a
 
 -- | Type alias for a database transaction run in any monad that satisfies the
--- constraints expressed in @DBM@.
+-- constraints expressed in 'DBM'.
 type DB a = forall m. DBM m a
 
 -- | Type alias for a value from a SQL database retrieved with Persistent.
@@ -37,14 +37,14 @@ type DBVal val =
   , PersistStore (PersistEntityBackend val))
 
 --------------------------------------------------------------------------------
--- | Execute read/write DB query using the connection pool from @Ctx@.
+-- | Execute DB action using the connection pool from 'Ctx'; DB actions are
+-- executed in a single transaction and rolled back if necessary.
 runDB :: (MonadReader Ctx m, MonadIO m) => DB a -> m a
 runDB query = do
   pool <- view connPool
   liftIO $ runSqlPool query pool
 
 --------------------------------------------------------------------------------
-
 share
   [mkPersist sqlSettings
   , mkMigrate "migrateAll"

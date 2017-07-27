@@ -3,7 +3,6 @@ module App where
 -- Prelude.
 import           ClassyPrelude               hiding (Handler, keys)
 
--- Base imports.
 import           Database.Persist.Postgresql
 import           Network.Wai.Handler.Warp    (run)
 import           Configuration.Dotenv        (loadFile, onMissingFile)
@@ -30,7 +29,7 @@ startApp = do
   -- Load environment variables present in a `.env` file; ignore missing file
   onMissingFile (loadFile False "./.env") (pure ())
 
-  -- Get the app environment (i.e. either @DEV@, @TEST@, @PROD@)
+  -- Get the app environment.
   env <- lookupSetting "ENV" Development
 
   -- Get the specified application port, default to 8080 if "APP_PORT" not present
@@ -39,7 +38,7 @@ startApp = do
   -- Loads the RSA keypath into memory; throws an error if the env var is missing
   maybeKeyPath <- lookupEnv "KEYPATH"
   rsaKeyPath   <- case maybeKeyPath of
-    Nothing -> throwIO $ userError "'KEYPATH' not present in environment!"
+    Nothing -> throwUserErr "'KEYPATH' not present in environment!"
     Just kp -> pure kp
 
   -- Generate JWTSettings from an RSA private keyfile; throws an error if the file
@@ -49,7 +48,7 @@ startApp = do
   -- Set up Katip logger, dump logs to stdout
   logger <- makeLogger env
 
-  -- Create a @ConnectionPool@, log events with @Katip@
+  -- Create a 'ConnectionPool', log events with @Katip@
   pool <- makePool env logger
 
   -- Run database migrations using the connection pool
@@ -58,7 +57,7 @@ startApp = do
   let ctx     = Ctx pool jwtCfg 1200 logger
       authCfg = defaultCookieSettings :. jwtCfg :. EmptyContext
       service = enter (appToHandler ctx) handler
-      -- The @Servant@ handler for this application
+      -- The 'Servant' handler for this application
 
   -- Get this party started!
   liftIO . run port . serveWithContext api authCfg $ service
@@ -82,13 +81,19 @@ lookupSetting env def = do
 
 --------------------------------------------------------------------------------
 -- | Creates a JSON Web Key from the first RSA key in the keyfile at the given
--- @FilePath@; throws an IO error if no key is present or the first key in the
+-- 'FilePath'; throws an IO error if no key is present or the first key in the
 -- keyfile is a DSA key.
 mkJWK :: FilePath -> IO JWK
 mkJWK keypath = do
   maybePk <- readKeyFile keypath
   case (headMay maybePk) of
-    Nothing -> throwIO $ userError $ "No valid keys present at [" <> show keypath <> "]"
-    Just (PrivKeyDSA _) -> throwIO $ userError $ "Invalid key (DSA) present in [" <> show keypath <> "]"
-    Just (PrivKeyRSA pk) -> pure $ fromRSA pk
+    Nothing ->
+      throwUserErr $ "No valid keys present at [" <> show keypath <> "]"
+    Just (PrivKeyDSA _) ->
+      throwUserErr $ "Invalid key (DSA) present in [" <> show keypath <> "]"
+    Just (PrivKeyRSA pk) ->
+      pure $ fromRSA pk
 
+--------------------------------------------------------------------------------
+throwUserErr :: String -> IO a
+throwUserErr = throwIO . userError

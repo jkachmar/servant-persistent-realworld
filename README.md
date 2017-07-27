@@ -50,8 +50,8 @@ To get started as quickly as possible:
     stack build
     stack exec realworld
 
-The rest of this README will try to explain in-depth what is happening during
-the steps above.
+The rest of this README will try to explain what is happening during above
+in a little more depth.
 
 #### Get the Project
 
@@ -77,6 +77,8 @@ Navigate to the `resources` directory and initialize the database:
 
 This will create a `srw_db` database, a `srw_user` user to manage it, and install 
 the `uuid-ossp` extension.
+
+TODO: I need to finish writing the migrations utility...
 
 ## Resources
 A lot of this code has been copied, adapted, or at the very least least inspired

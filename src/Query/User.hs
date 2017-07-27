@@ -1,10 +1,13 @@
 module Query.User where
 
+-- Prelude.
 import           ClassyPrelude      hiding (on)
+
 import           Data.UUID          (UUID)
 import           Data.UUID.V4       (nextRandom)
 import           Database.Esqueleto
 
+-- Local imports.
 import           Model
 import           Types.BCrypt
 import           Types.User
