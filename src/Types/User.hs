@@ -5,7 +5,7 @@ import           ClassyPrelude
 
 import           Control.Lens         (makeFields)
 import           Data.Aeson
-import           Data.Aeson.Types     (Parser)
+import           Data.Aeson.Types     (Parser, Options(..), camelTo2)
 import           Database.Persist.Sql
 
 -- Local imports.
@@ -40,11 +40,13 @@ data UserLogin
   = UserLogin
   { userLoginEmail    :: !UEmail
   , userLoginPassword :: !UPlainText
-  }
+  } deriving Generic
 
 instance FromJSON UserLogin where
-  parseJSON = unwrapUser "UserLogin" $
-    \u -> UserLogin <$> u .: "email" <*> u .: "password"
+  parseJSON =
+    unwrapUser "UserLogin"
+      $ genericParseJSON
+      $ camelTrimOpts "userLogin"
 
 --------------------------------------------------------------------------------
 -- | User registration JSON request.
@@ -53,11 +55,13 @@ data UserRegister
   { userRegisterEmail    :: !UEmail
   , userRegisterName     :: !UName
   , userRegisterPassword :: !UPlainText
-  }
+  } deriving Generic
 
 instance FromJSON UserRegister where
-  parseJSON = unwrapUser "UserRegister" $
-    \u -> UserRegister <$> u .: "email" <*> u .: "name" <*> u .: "password"
+  parseJSON =
+    unwrapUser "UserRegister"
+      $ genericParseJSON
+      $ camelTrimOpts "userRegister"
 
 --------------------------------------------------------------------------------
 -- | User update JSON request.
@@ -68,12 +72,13 @@ data UserUpdate
   , userPassword    :: !(Maybe UPlainText)
   , userBio         :: !(Maybe UBio)
   , userImage       :: !(Maybe UImage)
-  }
+  } deriving Generic
 
 instance FromJSON UserUpdate where
-  parseJSON = unwrapUser "UserUpdate" $
-    \u -> UserUpdate <$> u .:? "email" <*> u .:? "name"  <*> u .:? "password"
-                     <*> u .:? "bio"   <*> u .:? "image"
+  parseJSON =
+    unwrapUser "UserUpdate"
+      $ genericParseJSON
+      $ camelTrimOpts "userUpdate"
 
 --------------------------------------------------------------------------------
 -- | User JSON response.
@@ -84,20 +89,10 @@ data UserResponse
   , userResponseName  :: !UName
   , userResponseBio   :: !(Maybe UBio)
   , userResponseImage :: !(Maybe UImage)
-  }
+  } deriving Generic
 
 instance ToJSON UserResponse where
-  toJSON UserResponse{..} =
-    -- Serialize the inner block of the response.
-    let nested =
-          object [ "email" .= userResponseEmail
-                 , "token" .= userResponseToken
-                 , "name"  .= userResponseName
-                 , "bio"   .= userResponseBio
-                 , "image" .= userResponseImage
-                 ]
-    -- Then wrap that inner block in a "user" object.
-    in  object [ "user" .= nested ]
+  toJSON = wrapUser . (genericToJSON $ camelTrimOpts "userResponse")
 
 --------------------------------------------------------------------------------
 -- | Unwrap the top-level "user" object before deserializing some JSON.
@@ -105,6 +100,21 @@ unwrapUser :: FromJSON t => String -> (t -> Parser a) -> Value -> Parser a
 unwrapUser label parser = withObject label $ \o -> do
   u <- o .: "user"
   parser u
+
+-- | Wrap the data type to-be-serialized in a top-level "user" object.
+wrapUser :: ToJSON v => v -> Value
+wrapUser nested = object [ "user" .= nested ]
+
+--------------------------------------------------------------------------------
+-- | Custom Aeson options for dropping a given string from the field, then
+-- either camel or un-camel casing it (encoding or decoding, respectively).
+camelTrimOpts :: String -> Options
+camelTrimOpts field = defaultOptions { fieldLabelModifier = camelTrim field }
+
+-- | Trim some given string from the field, and then camel or un-camel case it
+-- (encoding or decoding, respectively).
+camelTrim :: IsSequence String ~ a => String -> String -> String
+camelTrim field = camelTo2 '_' . (drop . length $ field)
 
 --------------------------------------------------------------------------------
 -- | Generate field accessors.
