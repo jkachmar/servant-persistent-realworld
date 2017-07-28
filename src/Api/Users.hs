@@ -30,17 +30,16 @@ usersHandler = protected :<|> unprotected
 
 --------------------------------------------------------------------------------
 -- | Type-level representation of the endpoints protected by 'Auth'.
-type ProtectedApi =
-       "users"
-         :> "register"
-           :> ReqBody '[JSON] UserRegister
-             :> Post '[JSON] UserResponse
+type ProtectedApi = "users" :>
+  "register"
+    :> ReqBody '[JSON] UserRegister
+      :> Post '[JSON] UserResponse
 
 -- | Check authentication status and dispatch the request to the appropriate
 -- endpoint handler.
 protected :: AuthResult Token -> ServerT ProtectedApi App
 protected (Authenticated t) = register t
-protected _                 = pure $ throwM err401
+protected _                 = throwAll err401
 
 -- | Registration endpoint handler.
 register :: Token -> UserRegister -> App UserResponse
@@ -53,11 +52,10 @@ register _ userReg = do
 
 --------------------------------------------------------------------------------
 -- | Type-level representation of the endpoints not protected by 'Auth'.
-type UnprotectedApi =
-       "users"
-         :> "login"
-           :> ReqBody '[JSON] UserLogin
-             :> Post '[JSON] UserResponse
+type UnprotectedApi = "users" :>
+  "login"
+    :> ReqBody '[JSON] UserLogin
+      :> Post '[JSON] UserResponse
 
 -- | Dispatch the request to the appropriate endpoint handler.
 unprotected :: ServerT UnprotectedApi App
@@ -96,8 +94,7 @@ mkToken pass hashed dbUser = do
 -- of seconds
 mkJWT :: Token -> NominalDiffTime -> App JWTText
 mkJWT token duration = do
-  -- Try to make a JWT with the settings from the Reader environment, with an
-  -- expiry time 1 hour from now
+  -- Try to make a JWT with the settings from the Reader environment.
   settings <- view jwtSettings
   expires  <- liftIO $ Just . (addUTCTime duration) <$> getCurrentTime
   tryJWT   <- liftIO $ makeJWT token settings expires

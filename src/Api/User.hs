@@ -29,24 +29,26 @@ userHandler = protected
 
 --------------------------------------------------------------------------------
 -- | Type-level representation of the endpoints protected by @Auth@.
-type ProtectedApi = "user" :> Get '[JSON] UserResponse
+type ProtectedApi = "user" :> ProtectedApi'
+type ProtectedApi' =
+  Get '[JSON] UserResponse
 
 -- | Check authentication status and dispatch the request to the appropriate
 -- endpoint handler.
 protected :: AuthResult Token -> ServerT ProtectedApi App
-protected (Authenticated t) = echoUser t
-protected _                 = throwM err401
+protected (Authenticated t) = echo t
+protected _                 = throwAll err401
 
 -- | User echo endpoint handler.
-echoUser :: Token -> App UserResponse
-echoUser tok@(Token uUuid) = do
+echo :: Token -> App UserResponse
+echo tok@(Token uUuid) = do
   -- Get the user associated with this UUID, if they exist.
   maybeUser <- runDB $ getUserByUuid uUuid
   dbUser <- case maybeUser of
     Nothing -> throwM err404
     Just (Entity _ dbUser) -> pure dbUser
 
-  -- FIXME - This refreshes the user's JWT every time this endpoint is accessed.
+  -- NOTE - This refreshes the user's JWT every time this endpoint is accessed.
   -- Is this the intended behavior, or should the JWT keep its old expiry?
   timeout <- view jwtTimeout
   jwt <- mkJWT tok timeout
@@ -63,8 +65,7 @@ echoUser tok@(Token uUuid) = do
 -- of seconds
 mkJWT :: Token -> NominalDiffTime -> App JWTText
 mkJWT token duration = do
-  -- Try to make a JWT with the settings from the Reader environment, with an
-  -- expiry time 1 hour from now
+  -- Try to make a JWT with the settings from the Reader environment.
   settings <- view jwtSettings
   expires  <- liftIO $ Just . (addUTCTime duration) <$> getCurrentTime
   tryJWT   <- liftIO $ makeJWT token settings expires

@@ -18,7 +18,7 @@ import           Logging
 
 -- Servant and related imports.
 import           Servant                     ((:~>) (NT), Handler (Handler))
-import           Servant.Auth.Server         (JWTSettings)
+import           Servant.Auth.Server         (JWTSettings, ThrowAll(..))
 
 --------------------------------------------------------------------------------
 -- | Concrete representation of our app's transformer stack.
@@ -33,6 +33,9 @@ newtype AppT m a
              , MonadIO, MonadCatch, MonadThrow
              , MonadReader Ctx
              )
+
+instance MonadThrow m => ThrowAll (AppT m a) where
+  throwAll = throwM
 
 -- | Embed a function from some @Ctx@ to an arbitrary monad in @AppT@.
 mkAppT :: (Ctx -> m a) -> AppT m a

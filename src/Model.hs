@@ -13,7 +13,7 @@ import           Database.Persist.Sql
 import           Foundation           (Ctx, connPool)
 
 -- Local exports.
-import qualified Model.Persist        as Persist
+import           Model.Persist        as Persist
 
 --------------------------------------------------------------------------------
 -- | Constraint for functions that must implement 'MonadIO' and
