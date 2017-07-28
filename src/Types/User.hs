@@ -24,7 +24,7 @@ newtype UName = UName Text
 -- NOTE: Is this even really necessary? It's nice at least that it doesn't
 -- | Newtype wrapper around @Text@ for a user's plaintext password.
 newtype UPlainText = UPlainText { fromUPlainText :: Text }
-  deriving (Eq, FromJSON, ToJSON)
+  deriving (Eq, FromJSON)
 
 -- | Newtype wrapper around @Text@ for a user's bio.
 newtype UBio = UBio Text

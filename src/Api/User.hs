@@ -32,11 +32,14 @@ userHandler = protected
 type ProtectedApi = "user" :> ProtectedApi'
 type ProtectedApi' =
   Get '[JSON] UserResponse
+  :<|>
+  ReqBody '[JSON] UserUpdate
+    :> Put '[JSON] UserResponse
 
 -- | Check authentication status and dispatch the request to the appropriate
 -- endpoint handler.
 protected :: AuthResult Token -> ServerT ProtectedApi App
-protected (Authenticated t) = echo t
+protected (Authenticated t) = echo t :<|> update t
 protected _                 = throwAll err401
 
 -- | User echo endpoint handler.
@@ -58,6 +61,9 @@ echo tok@(Token uUuid) = do
 
   pure $ UserResponse
     (userEmail dbUser) jwt (userName dbUser) (userBio dbUser) (userImage dbUser)
+
+update :: Token -> UserUpdate -> App UserResponse
+update tok@(Token uUuid) userUpd = error "Please implement me!"
 
 --------------------------------------------------------------------------------
 -- TODO - make a `Common` module to store duplicated code such as this

@@ -1,5 +1,5 @@
 name:                servant-persistent-realworld
-version:             0.0.0.1
+version:             0.0.1
 synopsis:            RealWorld backend using Servant and Persistent
 description:         Backend implementation of the RealWorld project with Servant and Persistent
 homepage:            https://github.com/jkachmar/servant-persistent-realworld
