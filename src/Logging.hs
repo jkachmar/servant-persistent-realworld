@@ -5,7 +5,6 @@ module Logging where
 -- Prelude.
 import           ClassyPrelude
 
--- Base imports.
 import           Control.Lens                hiding (scribe)
 import           Control.Monad.Base
 import           Control.Monad.Reader

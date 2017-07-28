@@ -3,7 +3,6 @@ module Foundation where
 -- Prelude.
 import           ClassyPrelude               hiding (Handler, keys)
 
--- Base imports.
 import           Control.Lens                hiding (scribe)
 import           Control.Monad.Except        (ExceptT (..))
 import           Control.Monad.Trans.Maybe   (MaybeT (MaybeT), runMaybeT)

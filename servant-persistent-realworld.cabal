@@ -29,6 +29,7 @@ library
       Foundation
       Logging
       Model
+      Model.Persist
       Query.User
       Types.BCrypt
       Types.Instances

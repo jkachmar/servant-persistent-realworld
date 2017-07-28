@@ -29,7 +29,7 @@ usersHandler :: ServerT (UsersApi auths) App
 usersHandler = protected :<|> unprotected
 
 --------------------------------------------------------------------------------
--- | Type-level representation of the endpoints protected by @Auth@.
+-- | Type-level representation of the endpoints protected by 'Auth'.
 type ProtectedApi =
        "users"
          :> "register"
@@ -52,7 +52,7 @@ register _ userReg = do
   mkUserResponse userReg hashedPw dbUser logAction
 
 --------------------------------------------------------------------------------
--- | Type-level representation of the endpoints not protected by @Auth@.
+-- | Type-level representation of the endpoints not protected by 'Auth'.
 type UnprotectedApi =
        "users"
          :> "login"
