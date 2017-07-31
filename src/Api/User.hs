@@ -63,7 +63,7 @@ echo tok@(Token uUuid) = do
     (userEmail dbUser) jwt (userName dbUser) (userBio dbUser) (userImage dbUser)
 
 update :: Token -> UserUpdate -> App UserResponse
-update tok@(Token uUuid) userUpd = error "Please implement me!"
+update _tok@(Token _uUuid) _userUpd = error "Please implement me!"
 
 --------------------------------------------------------------------------------
 -- TODO - make a `Common` module to store duplicated code such as this

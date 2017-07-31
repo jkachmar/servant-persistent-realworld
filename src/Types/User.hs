@@ -6,6 +6,7 @@ import           ClassyPrelude
 import           Control.Lens         (makeFields)
 import           Data.Aeson
 import           Data.Aeson.Types     (Parser, Options(..), camelTo2)
+import           Data.Typeable        (Proxy(..), typeRep)
 import           Database.Persist.Sql
 
 -- Local imports.
@@ -43,10 +44,12 @@ data UserLogin
   } deriving Generic
 
 instance FromJSON UserLogin where
+  parseJSON :: forall a. a ~ UserLogin => Value -> Parser a
   parseJSON =
-    unwrapUser "UserLogin"
-      $ genericParseJSON
-      $ camelTrimOpts "userLogin"
+    let label = Proxy @a
+    in unwrapUser
+       $ genericParseJSON
+       $ gSnakeCase label
 
 --------------------------------------------------------------------------------
 -- | User registration JSON request.
@@ -58,10 +61,12 @@ data UserRegister
   } deriving Generic
 
 instance FromJSON UserRegister where
+  parseJSON :: forall a. a ~ UserRegister => Value -> Parser a
   parseJSON =
-    unwrapUser "UserRegister"
-      $ genericParseJSON
-      $ camelTrimOpts "userRegister"
+    let label = Proxy @a
+    in unwrapUser
+       $ genericParseJSON
+       $ gSnakeCase label
 
 --------------------------------------------------------------------------------
 -- | User update JSON request.
@@ -75,10 +80,12 @@ data UserUpdate
   } deriving Generic
 
 instance FromJSON UserUpdate where
+  parseJSON :: forall a. a ~ UserUpdate => Value -> Parser a
   parseJSON =
-    unwrapUser "UserUpdate"
-      $ genericParseJSON
-      $ camelTrimOpts "userUpdate"
+    let label = Proxy @a
+    in unwrapUser
+       $ genericParseJSON
+       $ gSnakeCase label
 
 --------------------------------------------------------------------------------
 -- | User JSON response.
@@ -92,29 +99,45 @@ data UserResponse
   } deriving Generic
 
 instance ToJSON UserResponse where
-  toJSON = wrapUser . (genericToJSON $ camelTrimOpts "userResponse")
+  toJSON :: forall a. a ~ UserResponse => a -> Value
+  toJSON = let label = Proxy @a
+           in wrapUser . (genericToJSON $ gSnakeCase label)
 
 --------------------------------------------------------------------------------
--- | Unwrap the top-level "user" object before deserializing some JSON.
-unwrapUser :: FromJSON t => String -> (t -> Parser a) -> Value -> Parser a
-unwrapUser label parser = withObject label $ \o -> do
-  u <- o .: "user"
-  parser u
+-- | Unwrap the top-level "user" object from some JSON before deserializing it.
+unwrapUser
+  :: forall a b
+   . (FromJSON a, Typeable b)
+  => (a -> Parser b) -> Value -> Parser b
+unwrapUser = unwrapJson "user"
 
 -- | Wrap the data type to-be-serialized in a top-level "user" object.
-wrapUser :: ToJSON v => v -> Value
-wrapUser nested = object [ "user" .= nested ]
+wrapUser :: ToJSON a => a -> Value
+wrapUser = wrapJson "user"
 
 --------------------------------------------------------------------------------
--- | Custom Aeson options for dropping a given string from the field, then
--- either camel or un-camel casing it (encoding or decoding, respectively).
-camelTrimOpts :: String -> Options
-camelTrimOpts field = defaultOptions { fieldLabelModifier = camelTrim field }
+-- | Unwrap the top-level object of some JSON before deserializing it.
+unwrapJson
+  :: forall a b
+   . (FromJSON a, Typeable b)
+  => Text -> (a -> Parser b) -> Value -> Parser b
+unwrapJson field parser =
+  let label = show . typeRep $ Proxy @b
+  in withObject label $ \o -> do
+    u <- o .: field
+    parser u
 
--- | Trim some given string from the field, and then camel or un-camel case it
--- (encoding or decoding, respectively).
-camelTrim :: IsSequence String ~ a => String -> String -> String
-camelTrim field = camelTo2 '_' . (drop . length $ field)
+-- | Wrap the data type to-be-serialized in some top-level object.
+wrapJson :: ToJSON a => Text -> a -> Value
+wrapJson label nested = object [ label .= nested ]
+
+-------------------------------------------------------------------------------
+-- | Aeson options for dropping the type name from some record's field labels,
+-- and "snake_case"-ing it before serialization.
+gSnakeCase :: forall proxy a. Typeable a => proxy a -> Options
+gSnakeCase _ = defaultOptions { fieldLabelModifier = gTrim }
+  where gTrim :: String -> String
+        gTrim = camelTo2 '_' . (drop . length . show $ typeRep $ Proxy @a)
 
 --------------------------------------------------------------------------------
 -- | Generate field accessors.
