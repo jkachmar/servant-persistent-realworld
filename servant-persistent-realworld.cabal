@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:                servant-persistent-realworld
-version:             0.0.0.1
+version:             0.0.1
 synopsis:            RealWorld backend using Servant and Persistent
 description:         Backend implementation of the RealWorld project with Servant and Persistent
 homepage:            https://github.com/jkachmar/servant-persistent-realworld
@@ -20,7 +20,7 @@ library
   ghc-options: -Wall -Werror
   hs-source-dirs:
       src
-  default-extensions: ConstraintKinds DataKinds DeriveGeneric FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings PatternSynonyms QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TypeApplications TypeFamilies TypeOperators ViewPatterns
+  default-extensions: ConstraintKinds DataKinds DeriveGeneric FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings PatternSynonyms QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TypeApplications TypeFamilies TypeOperators ViewPatterns
   exposed-modules:
       Api
       Api.User
@@ -35,6 +35,7 @@ library
       Types.Instances
       Types.Token
       Types.User
+      Utils.Aeson
   build-depends:
       aeson                 >= 1.0  && < 1.1
     , base                  >= 4.7  && < 5
@@ -74,7 +75,7 @@ executable migration
   main-is: Main.hs
   hs-source-dirs:
       migration
-  default-extensions: ConstraintKinds DataKinds DeriveGeneric FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings PatternSynonyms QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TypeApplications TypeFamilies TypeOperators ViewPatterns
+  default-extensions: ConstraintKinds DataKinds DeriveGeneric FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings PatternSynonyms QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TypeApplications TypeFamilies TypeOperators ViewPatterns
   ghc-options: -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson                 >= 1.0  && < 1.1
@@ -117,7 +118,7 @@ executable realworld
   main-is: Main.hs
   hs-source-dirs:
       app
-  default-extensions: ConstraintKinds DataKinds DeriveGeneric FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings PatternSynonyms QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TypeApplications TypeFamilies TypeOperators ViewPatterns
+  default-extensions: ConstraintKinds DataKinds DeriveGeneric FlexibleContexts FlexibleInstances FunctionalDependencies GADTs GeneralizedNewtypeDeriving InstanceSigs LambdaCase MultiParamTypeClasses NoImplicitPrelude OverloadedStrings PatternSynonyms QuasiQuotes RankNTypes RecordWildCards ScopedTypeVariables StandaloneDeriving TemplateHaskell TypeApplications TypeFamilies TypeOperators ViewPatterns
   ghc-options: -Wall -Werror -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       aeson                 >= 1.0  && < 1.1
