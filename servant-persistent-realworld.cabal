@@ -35,6 +35,7 @@ library
       Types.Instances
       Types.Token
       Types.User
+      Utils.Aeson
   build-depends:
       aeson                 >= 1.0  && < 1.1
     , base                  >= 4.7  && < 5
